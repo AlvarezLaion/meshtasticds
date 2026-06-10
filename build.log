@@ -1,0 +1,37 @@
+[1/2] STEP 1/6: FROM devkitpro/devkitarm:latest
+[1/2] STEP 2/6: RUN dkp-pacman -Syu --noconfirm 3ds-dev 3dstools
+--> Using cache 5d684bb2925d7dd64bd9b2de738351e34e10ee4e187f846313ce99e3bfdb63ce
+--> 5d684bb2925d
+[1/2] STEP 3/6: WORKDIR /app
+--> Using cache 9bc46b4a5984929d1e90328e0468e627e750645775e138c4b1da1a0ed0a4c929
+--> 9bc46b4a5984
+[1/2] STEP 4/6: COPY . /app
+--> b6a50e51edc8
+[1/2] STEP 5/6: WORKDIR /app/src/3ds
+--> 89b192d0e027
+[1/2] STEP 6/6: RUN make clean && make && make cia
+rm -rf build
+/opt/devkitpro/devkitARM/bin/arm-none-eabi-g++ -DBRIDGE_PORT=4444 -g -Wall -O2 -march=armv6k -mfpu=vfp -mfloat-abi=hard -mtp=soft -I/app/src/3ds -I/opt/devkitpro/libctru/include -c main.cpp -o build/main.o
+/opt/devkitpro/devkitARM/bin/arm-none-eabi-g++ -DBRIDGE_PORT=4444 -g -Wall -O2 -march=armv6k -mfpu=vfp -mfloat-abi=hard -mtp=soft -I/app/src/3ds -I/opt/devkitpro/libctru/include -c network_client.cpp -o build/network_client.o
+/opt/devkitpro/devkitARM/bin/arm-none-eabi-g++ -DBRIDGE_PORT=4444 -g -Wall -O2 -march=armv6k -mfpu=vfp -mfloat-abi=hard -mtp=soft -I/app/src/3ds -I/opt/devkitpro/libctru/include -c ui_handler.cpp -o build/ui_handler.o
+/opt/devkitpro/devkitARM/bin/arm-none-eabi-g++ -march=armv6k -mfpu=vfp -mfloat-abi=hard -mtp=soft -specs=3dsx.specs -B/opt/devkitpro/devkitARM/arm-none-eabi/lib/armv6k/fpu -Wl,--gc-sections -L/opt/devkitpro/libctru/lib  build/main.o build/network_client.o build/ui_handler.o -lctru -lstdc++ -lm -o build/meshtastic3ds.elf
+/opt/devkitpro/devkitARM/bin/arm-none-eabi-objcopy -O binary build/meshtastic3ds.elf build/meshtastic3ds.3dsx
+CIA packaging not supported without makerom; .3dsx is the primary output.
+Use the .3dsx file for Citra or Homebrew Launcher.
+--> 12540790565e
+[2/2] STEP 1/4: FROM alpine:3.18 AS final
+Resolving "alpine" using unqualified-search registries (/home/indreaven/.config/containers/registries.conf)
+Trying to pull docker.io/library/alpine:3.18...
+Getting image source signatures
+Copying blob sha256:44cf07d57ee4424189f012074a59110ee2065adfdde9c7d9826bebdffce0a885
+Copying config sha256:802c91d5298192c0f3a08101aeb5f9ade2992e22c9e27fa8b88eab82602550d0
+Writing manifest to image destination
+[2/2] STEP 2/4: COPY --from=0 /app/src/3ds/build/meshtastic3ds.3dsx /artifacts/meshtastic3ds.3dsx
+--> e3e8e1b39efd
+[2/2] STEP 3/4: COPY --from=0 /app/src/3ds/build/meshtastic3ds.cia  /artifacts/meshtastic3ds.cia
+--> 22a1b08328f7
+[2/2] STEP 4/4: ENTRYPOINT ["sh", "-c", "cp /artifacts/* /out/ && echo 'Artifacts written to /out/'"]
+[2/2] COMMIT meshtastic-3ds
+--> ee3a2b7c7e05
+Successfully tagged localhost/meshtastic-3ds:latest
+ee3a2b7c7e0502a2d0a465e7e8066d10f55e0e0b09729091ea35d45e83e6d6c5
