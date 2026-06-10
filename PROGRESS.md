@@ -13,42 +13,23 @@
   - Console-only build (no Citro2D/3D graphics) due to VFP ABI incompatibility with Ubuntu-based toolchain
   - CIA packaging skipped (makerom not available); `.3dsx` is primary output
 - **Phase 3: Binary extraction** – `out/meshtastic3ds.3dsx` and `out/meshtastic3ds.cia` extracted successfully. `.3dsx` is ready for Citra emulator or 3DS Homebrew Launcher (`/3ds/` on SD card).
+- **Phase 4: 3DSX binary format fix & emulator testing setup** – Fixed critical binary format issue:
+  - **Problem discovered:** Original binary was flat ARM code (produced by `objcopy -O binary`), lacking the required 3DSX header. Neither Citra nor Homebrew Launcher would accept it.
+  - **Solution:** Rebuilt with `3dsxtool` (from devkitPro toolchain) to generate proper 3DSX header with relocation table and segments.
+  - **Result:** Binary now has correct magic header (`3344 5358` = "3DSX") and is loadable by emulators and 3DS hardware.
+  - **Network emulator config:** Changed `TARGET_IP` from `192.168.4.1` (Heltec hardware) to `127.0.0.1` (localhost) for emulator testing.
+  - **Mock bridge server:** Created `test-bridge-mock.sh` — Python-based TCP server that listens on port 4444, parses incoming JSON, and echoes messages back. Allows testing network code without real mesh hardware.
+  - **Testing guide:** Created `PHASE4-EMULATOR-TESTING.md` with step-by-step instructions for both emulator (with Lime3DS) and network-only tests.
 
 ## ⏳ Pending steps (what still needs to be done)
 1. ~~**Install and configure Podman**~~ ✅ Done (Podman 5.8.2)
-   - Install the `podman` package (`sudo apt install podman` on Debian/Ubuntu, or use your distro's equivalent).
-   - Silence the *Docker‑CLI not found* warning:
-     ```bash
-     sudo mkdir -p /etc/containers
-     sudo touch /etc/containers/nodocker   # works for rootless too, put it in ~/.config/containers/nodocker
-     ```
-   - Enable short‑name image resolution (so `meshtastic-3ds` can be used as a local tag) by creating a minimal `registries.conf`:
-     ```bash
-     sudo tee /etc/containers/registries.conf > /dev/null <<'EOF'
-     [[registry]]
-     prefix = ""
-     location = "docker.io"
-
-     [registries.search]
-     registries = ["docker.io"]
-     EOF
-     ```
-2. ~~**Build the image**~~ ✅ Done – use `podman build -t meshtastic-3ds .` (requires `devkitpro/devkitarm` base image)
-   ```bash
-   podman build -t meshtastic-3ds .
-   ```
-   This will:
-   - Install devkitPro + devkitARM, libctru, citro2d, citro3d.
-   - Compile the 3DS sources (`make clean && make`).
-   - Export the artifacts `meshtastic3ds.cia` and `meshtastic3ds.3dsx` to `/out`.
-3. ~~**Run the container and retrieve the binaries**~~ ✅ Done – `out/meshtastic3ds.3dsx` (180KB) ready
-   ```bash
-   mkdir -p out
-   podman run --rm -v "$(pwd)/out:/out" meshtastic-3ds
-   ```
-   After the command finishes you will have:
-   - `out/meshtastic3ds.cia` – ready to load on a real 3DS via Homebrew Launcher / GodMode9.
-   - `out/meshtastic3ds.3dsx` – can be launched in the Citra emulator.
+2. ~~**Build the image**~~ ✅ Done – Now uses `3dsxtool` to generate proper 3DSX header
+3. ~~**Run the container and retrieve the binaries**~~ ✅ Done – `out/meshtastic3ds.3dsx` (177KB) with correct 3DSX magic header
+4. ~~**Phase 4: Binary format fix & emulator testing setup**~~ ✅ Done:
+   - Makefile fixed: replaced `objcopy -O binary` with `3dsxtool` in `$(BIN)` rule
+   - Network client configured for emulator: `TARGET_IP = 127.0.0.1:4444`
+   - Mock bridge server created: `test-bridge-mock.sh` (Python-based, tested and working)
+   - Testing guide written: `PHASE4-EMULATOR-TESTING.md`
 4. **Test the end‑to‑end flow**:
    - Flash the Heltec with the `BridgeModule` firmware (use PlatformIO or `pio run -e esp32dev -t upload`).
    - The ESP32 will create a Wi‑Fi AP called `meshtastic-bridge` (IP `192.168.4.1`).
@@ -62,13 +43,15 @@
 
 ## 📋 Next actions (what to do now)
 - **[✅]** Podman installed and configured (5.8.2)
-- **[✅]** Docker image built (`localhost/meshtastic-3ds:latest`)
-- **[✅]** Binaries extracted to `out/meshtastic3ds.3dsx`
-- **[ ]** **Phase 4:** Test `.3dsx` in Citra emulator OR on real 3DS via Homebrew Launcher
-  - Copy `out/meshtastic3ds.3dsx` to 3DS SD card under `/3ds/meshtastic3ds/meshtastic3ds.3dsx`
-  - OR load directly in Citra: File → Open → select the `.3dsx`
-- **[ ]** Flash Heltec ESP32 with Meshtastic + BridgeModule and test full comms loop
-- **[ ]** (Optional) Phase 5: Restore graphics UI once toolchain is confirmed stable
+- **[✅]** Docker image built with correct 3DSX binary format
+- **[✅]** Binaries extracted and tested: `out/meshtastic3ds.3dsx` has correct magic header
+- **[✅]** Mock bridge server created and tested: JSON echo working
+- **[ ]** Install Lime3DS or Citra and load `.3dsx` binary
+  - Verify console prints `Connected to bridge!`
+  - Test message send/receive with mock bridge running
+- **[ ]** Flash Heltec ESP32 with Meshtastic + BridgeModule and test full mesh integration
+  - Requires reverting `TARGET_IP` to `192.168.4.1` and rebuilding
+- **[ ]** (Optional) Phase 5: Restore graphics UI and add message persistence
 
 ---
 *Generated by Claude Code – progress documented for easy hand‑off.*
