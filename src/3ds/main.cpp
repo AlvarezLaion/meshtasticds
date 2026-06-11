@@ -1,9 +1,9 @@
 #include <3ds.h>
 #include <malloc.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string>
 #include "network_client.h"
+#include "ui_handler.h"
 
 // soc:u service buffer backing the BSD socket layer.
 // Must be 0x1000-aligned and a multiple of 0x1000 bytes.
@@ -12,58 +12,64 @@
 
 int main(int argc, char* argv[]) {
     gfxInitDefault();
-    consoleInit(GFX_TOP, NULL);
 
-    printf("\n=== Meshtastic 3DS Console ===\n");
-    printf("Initializing network...\n");
+    UIHandler ui;
+    if (!ui.Init()) {
+        gfxExit();
+        return 1;
+    }
+
+    ui.AddMessage(".:eLoRa.:.3Ds:. ONLINE", UIHandler::MsgOrigin::SYSTEM);
 
     u32* socBuffer = (u32*)memalign(SOC_ALIGN, SOC_BUFFERSIZE);
     bool socReady = (socBuffer != NULL) && R_SUCCEEDED(socInit(socBuffer, SOC_BUFFERSIZE));
     if (!socReady) {
-        printf("ERROR: socInit failed; networking unavailable.\n");
+        ui.AddMessage("ERROR: socInit failed", UIHandler::MsgOrigin::ERROR);
     }
 
     NetworkClient netClient;
 
     if (socReady) {
-        printf("Connecting to bridge at %s:%u ...\n",
-               NetworkClient::TARGET_IP, NetworkClient::TARGET_PORT);
+        ui.SetConnState(UIHandler::ConnState::CONNECTING);
         if (netClient.Connect()) {
-            printf("Connected to bridge!\n");
+            ui.SetConnState(UIHandler::ConnState::CONNECTED,
+                std::string(NetworkClient::TARGET_IP) + ":" +
+                std::to_string(NetworkClient::TARGET_PORT));
         } else {
-            printf("ERROR: Connection to bridge failed.\n");
-            printf("Make sure:\n");
-            printf("  1. Heltec is running with BridgeModule\n");
-            printf("  2. Wi-Fi AP 'meshtastic-bridge' is available\n");
-            printf("  3. 3DS is connected to that AP\n");
-            printf("Press Y to retry the connection.\n");
+            ui.AddMessage("Connection failed", UIHandler::MsgOrigin::ERROR);
+            ui.SetConnState(UIHandler::ConnState::DISCONNECTED);
         }
     }
 
-    printf("\nControls:\n");
-    printf("  START: Exit\n");
-    printf("  A: Type message\n");
-    printf("  X: Send\n");
-    printf("  B: Backspace\n");
-    printf("  Y: Reconnect\n");
+    ui.SetInputBuffer("");
 
     std::string inputBuffer;
     bool wasConnected = netClient.IsConnected();
 
+    int cursorTimer = 0;
+    bool cursorOn = true;
+
     while (aptMainLoop()) {
         hidScanInput();
         u32 keyDown = hidKeysDown();
+
+        if (++cursorTimer >= 30) {
+            cursorTimer = 0;
+            cursorOn = !cursorOn;
+            ui.SetCursorVisible(cursorOn);
+        }
 
         if (keyDown & KEY_START) break;
 
         // Poll for incoming messages
         std::string incoming;
         while (netClient.PollMessage(incoming)) {
-            printf("[Received] %s\n", incoming.c_str());
+            ui.AddMessage(incoming, UIHandler::MsgOrigin::RECEIVED);
         }
 
         if (wasConnected && !netClient.IsConnected()) {
-            printf("[Warn] Connection lost. Press Y to reconnect.\n");
+            ui.AddMessage("Connection lost", UIHandler::MsgOrigin::WARNING);
+            ui.SetConnState(UIHandler::ConnState::LOST);
         }
         wasConnected = netClient.IsConnected();
 
@@ -76,17 +82,19 @@ int main(int argc, char* argv[]) {
             SwkbdButton btn = swkbdInputText(&swkbd, inputText, sizeof(inputText));
             if (btn == SWKBD_BUTTON_CONFIRM && inputText[0] != '\0') {
                 inputBuffer = inputText;
-                printf("[You] %s\n", inputBuffer.c_str());
+                ui.AddMessage("You: " + inputBuffer, UIHandler::MsgOrigin::SELF);
+                ui.SetInputBuffer(inputBuffer);
             }
         }
 
         if (keyDown & KEY_X) {
             if (!inputBuffer.empty()) {
                 if (netClient.SendText(inputBuffer)) {
-                    printf("[Sent] %s\n", inputBuffer.c_str());
+                    ui.AddMessage("Sent: " + inputBuffer, UIHandler::MsgOrigin::SELF);
+                    ui.SetInputBuffer("");
                     inputBuffer.clear();
                 } else {
-                    printf("[Error] Failed to send message\n");
+                    ui.AddMessage("Send failed", UIHandler::MsgOrigin::ERROR);
                 }
             }
         }
@@ -94,32 +102,33 @@ int main(int argc, char* argv[]) {
         if (keyDown & KEY_B) {
             if (!inputBuffer.empty()) {
                 inputBuffer.pop_back();
-                printf("[Input] %s\n", inputBuffer.c_str());
+                ui.SetInputBuffer(inputBuffer);
             }
         }
 
         if (keyDown & KEY_Y) {
             if (socReady && !netClient.IsConnected()) {
-                printf("Reconnecting to %s:%u ...\n",
-                       NetworkClient::TARGET_IP, NetworkClient::TARGET_PORT);
+                ui.SetConnState(UIHandler::ConnState::CONNECTING);
                 netClient.Disconnect();
                 if (netClient.Connect()) {
-                    printf("Connected to bridge!\n");
+                    ui.SetConnState(UIHandler::ConnState::CONNECTED,
+                        std::string(NetworkClient::TARGET_IP) + ":" +
+                        std::to_string(NetworkClient::TARGET_PORT));
                 } else {
-                    printf("Reconnect failed. Press Y to retry.\n");
+                    ui.AddMessage("Reconnect failed", UIHandler::MsgOrigin::WARNING);
+                    ui.SetConnState(UIHandler::ConnState::DISCONNECTED);
                 }
                 wasConnected = netClient.IsConnected();
             }
         }
 
-        gfxFlushBuffers();
-        gfxSwapBuffers();
-        gspWaitForVBlank();
+        ui.Render();
     }
 
     netClient.Disconnect();
     if (socReady) socExit();
     free(socBuffer);
+    ui.Shutdown();
     gfxExit();
     return 0;
 }

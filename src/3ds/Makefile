@@ -19,11 +19,12 @@ endif
 
 # Include and library paths
 LIBCTRU ?= $(DEVKITPRO)/libctru
-C_INCLUDES	:= -I$(CURDIR) -I$(LIBCTRU)/include
-LIBDIRS		:= -L$(LIBCTRU)/lib
+PORTLIBS ?= $(DEVKITPRO)/portlibs/3ds
+C_INCLUDES	:= -I$(CURDIR) -I$(LIBCTRU)/include -I$(PORTLIBS)/include
+LIBDIRS		:= -L$(PORTLIBS)/lib -L$(LIBCTRU)/lib
 
-# Libraries to link (graphics removed for console-only)
-LIBS	:= -lctru -lstdc++ -lm
+# Graphics: citro2d (2D GPU) -> citro3d (GPU layer) -> ctru (libctru)
+LIBS	:= -lcitro2d -lcitro3d -lctru -lstdc++ -lm
 
 # Source files
 # Automatically find all .cpp and .c files in the current directory
