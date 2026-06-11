@@ -1,5 +1,12 @@
 # Phase 4 — Emulator Testing Guide
 
+> ✅ **COMPLETED 2026-06-10:** Emulator testing passed end-to-end using
+> **Azahar** (the active successor to Citra/Lime3DS, which are defunct),
+> installed at `tools/azahar.AppImage`. Launch with:
+> `./tools/azahar.AppImage out/meshtastic3ds-emu.3dsx`
+> Default key mapping: A→`a`, B→`s`, X→`z`, Y→`x`, START→`m`.
+> See `PROGRESS.md` → Phase 4.6 for results.
+
 ## Summary
 
 The 3DS Meshtastic app binary has been rebuilt with the correct **3DSX magic header** (`3344 5358`). 
@@ -79,19 +86,14 @@ echo '{"text":"Test message"}' | nc 127.0.0.1 4444
 
 - [ ] Binary has correct 3DSX magic (`xxd out/meshtastic3ds.3dsx | head -1` shows `3344 5358`)
 - [ ] Mock bridge script is executable (`ls -l test-bridge-mock.sh` shows `x` permissions)
-- [ ] Network client uses `127.0.0.1:4444` for emulator (`grep TARGET_IP src/3ds/network_client.h`)
+- [ ] Emulator build was made with `--build-arg BRIDGE_IP=127.0.0.1` (hardware default is `192.168.4.1`)
 - [ ] Mock bridge echoes messages correctly (manual `nc` test in Option B)
 
 ## Hardware Testing (After Emulator Verification)
 
 **When ready to test on real hardware:**
 
-1. **Revert IP address** — Change `src/3ds/network_client.h`:
-   ```cpp
-   static constexpr const char* TARGET_IP = "192.168.4.1";  // Hardware IP
-   ```
-
-2. **Rebuild:**
+1. **Rebuild for hardware** — the default build already targets `192.168.4.1` (no source edits needed; emulator builds use `--build-arg BRIDGE_IP=127.0.0.1`):
    ```bash
    podman build -t meshtastic-3ds .
    mkdir -p out

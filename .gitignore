@@ -52,6 +52,10 @@ env.bak/
 # Build output
 out/
 src/3ds/build/
+build.log
 
-# Fix #13: bridge credentials override header — copy from bridge_config.h.example
+# Local tooling (emulator AppImage etc.)
+tools/
+
+# Bridge credentials override (copy from bridge_config.h.example if needed)
 src/modules/bridge_config.h

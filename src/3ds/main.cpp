@@ -1,23 +1,43 @@
 #include <3ds.h>
+#include <malloc.h>
 #include <stdio.h>
-#include <string.h>
+#include <stdlib.h>
+#include <string>
 #include "network_client.h"
 
+// soc:u service buffer backing the BSD socket layer.
+// Must be 0x1000-aligned and a multiple of 0x1000 bytes.
+#define SOC_ALIGN      0x1000
+#define SOC_BUFFERSIZE 0x100000
+
 int main(int argc, char* argv[]) {
-    consoleClear();
+    gfxInitDefault();
+    consoleInit(GFX_TOP, NULL);
+
     printf("\n=== Meshtastic 3DS Console ===\n");
-    printf("Initializing...\n");
+    printf("Initializing network...\n");
+
+    u32* socBuffer = (u32*)memalign(SOC_ALIGN, SOC_BUFFERSIZE);
+    bool socReady = (socBuffer != NULL) && R_SUCCEEDED(socInit(socBuffer, SOC_BUFFERSIZE));
+    if (!socReady) {
+        printf("ERROR: socInit failed; networking unavailable.\n");
+    }
 
     NetworkClient netClient;
 
-    if (!netClient.Connect()) {
-        printf("ERROR: Connection to bridge failed.\n");
-        printf("Make sure:\n");
-        printf("  1. Heltec is running with BridgeModule\n");
-        printf("  2. Wi-Fi AP 'meshtastic-bridge' is available\n");
-        printf("  3. 3DS is connected to the AP at 192.168.4.1:4444\n");
-    } else {
-        printf("Connected to bridge!\n");
+    if (socReady) {
+        printf("Connecting to bridge at %s:%u ...\n",
+               NetworkClient::TARGET_IP, NetworkClient::TARGET_PORT);
+        if (netClient.Connect()) {
+            printf("Connected to bridge!\n");
+        } else {
+            printf("ERROR: Connection to bridge failed.\n");
+            printf("Make sure:\n");
+            printf("  1. Heltec is running with BridgeModule\n");
+            printf("  2. Wi-Fi AP 'meshtastic-bridge' is available\n");
+            printf("  3. 3DS is connected to that AP\n");
+            printf("Press Y to retry the connection.\n");
+        }
     }
 
     printf("\nControls:\n");
@@ -25,8 +45,10 @@ int main(int argc, char* argv[]) {
     printf("  A: Type message\n");
     printf("  X: Send\n");
     printf("  B: Backspace\n");
+    printf("  Y: Reconnect\n");
 
     std::string inputBuffer;
+    bool wasConnected = netClient.IsConnected();
 
     while (aptMainLoop()) {
         hidScanInput();
@@ -39,6 +61,11 @@ int main(int argc, char* argv[]) {
         while (netClient.PollMessage(incoming)) {
             printf("[Received] %s\n", incoming.c_str());
         }
+
+        if (wasConnected && !netClient.IsConnected()) {
+            printf("[Warn] Connection lost. Press Y to reconnect.\n");
+        }
+        wasConnected = netClient.IsConnected();
 
         // Handle keyboard input
         if (keyDown & KEY_A) {
@@ -67,12 +94,32 @@ int main(int argc, char* argv[]) {
         if (keyDown & KEY_B) {
             if (!inputBuffer.empty()) {
                 inputBuffer.pop_back();
+                printf("[Input] %s\n", inputBuffer.c_str());
             }
         }
 
-        svcSleepThread(50000000);  // Sleep 50ms to prevent busy-loop
+        if (keyDown & KEY_Y) {
+            if (socReady && !netClient.IsConnected()) {
+                printf("Reconnecting to %s:%u ...\n",
+                       NetworkClient::TARGET_IP, NetworkClient::TARGET_PORT);
+                netClient.Disconnect();
+                if (netClient.Connect()) {
+                    printf("Connected to bridge!\n");
+                } else {
+                    printf("Reconnect failed. Press Y to retry.\n");
+                }
+                wasConnected = netClient.IsConnected();
+            }
+        }
+
+        gfxFlushBuffers();
+        gfxSwapBuffers();
+        gspWaitForVBlank();
     }
 
     netClient.Disconnect();
+    if (socReady) socExit();
+    free(socBuffer);
+    gfxExit();
     return 0;
 }

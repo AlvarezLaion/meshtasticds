@@ -27,8 +27,14 @@ podman run --rm -v "$(pwd)/out:/out" meshtastic-3ds
 ```
 
 This produces:
-- `out/meshtastic3ds.3dsx` – runnable in Citra emulator
-- `out/meshtastic3ds.cia` – installable on physical 3DS hardware
+- `out/meshtastic3ds.3dsx` – runnable in Citra/Lime3DS and on hardware via the Homebrew Launcher (copy to SD card at `/3ds/meshtastic3ds.3dsx`)
+
+No `.cia` is produced: real CIA packaging requires `makerom`, which is not in this toolchain.
+
+The bridge IP is baked in at build time and defaults to the hardware AP (`192.168.4.1`). For emulator testing against the mock bridge, build with:
+```bash
+podman build --build-arg BRIDGE_IP=127.0.0.1 -t meshtastic-3ds .
+```
 
 ### Direct Build (inside container or with devkitPro installed locally)
 
@@ -40,8 +46,7 @@ make
 ```
 
 Build targets:
-- `make` – builds the `.3dsx` file (default)
-- `make cia` – builds the `.cia` package (requires `makerom`)
+- `make` – builds the `.3dsx` file (default); accepts `BRIDGE_IP=` / `BRIDGE_PORT=` overrides (run `make clean` first when changing them)
 - `make clean` – removes build artifacts
 
 ## Architecture & Design
@@ -56,9 +61,9 @@ The 3DS client and Bridge Module communicate via **JSON lines over TCP**:
 ### Code Structure
 
 **3DS Client Components:**
-- `main.cpp` – Hardware initialization (Citro2D/C3D), main loop (input → update → render)
+- `main.cpp` – Hardware initialization (`gfxInitDefault`/`consoleInit` + `socInit` for sockets), console UI, main loop (input → poll network → print)
 - `network_client.{h,cpp}` – TCP socket client; handles `SendText()` and `PollMessage()` for JSON communication
-- `ui_handler.{h,cpp}` – Display rendering and user input (keyboard, button presses)
+- `ui_handler.{h,cpp}` – Stubs; the current build is console-only (the terminal-style UI below is the Phase 5 target)
 
 ### UI Design (Minimal, Terminal-like)
 
@@ -116,24 +121,24 @@ The 3DS client and Bridge Module communicate via **JSON lines over TCP**:
 
 1. Connect 3DS/Citra to `meshtastic-bridge` Wi-Fi AP
 2. Launch the built 3DS application
-3. Press **A** to open on-screen keyboard, type a message
-4. Press **Enter** to send
+3. Press **A** to open on-screen keyboard, type a message, confirm with **OK**
+4. Press **X** to send
 5. **Expected behavior:**
    - ESP32 serial console should print `Forwarded to mesh: <your text>`
    - Incoming mesh messages should appear in the 3DS console
 
 ### Debugging Hints
 
-- **Connection failures** – Check `NetworkClient::Connect()` return value; verify bridge is running and reachable at `192.168.4.1:4444`
+- **Connection failures** – Check `NetworkClient::Connect()` return value; verify bridge is running and reachable at `192.168.4.1:4444`. On hardware, sockets only work after `socInit()` succeeds (see `main.cpp`). Press **Y** in-app to retry the connection.
 - **JSON parsing errors** – Ensure messages are null-terminated and end with `\n`
-- **Graphics issues** – Verify Citro2D/C3D initialization in `main.cpp`; check libctru headers in Dockerfile
+- **Display issues** – Verify `gfxInitDefault()` + `consoleInit()` in `main.cpp`; check libctru headers in Dockerfile
 
 ## Important Files & Line References
 
-- **Main Loop:** `src/3ds/main.cpp:42–69` – Input → Update → Render cycle
-- **Protocol Definition:** `src/3ds/network_client.h:10–11` – JSON message format
-- **Bridge Port Config:** `src/3ds/Makefile:9` – `BRIDGE_PORT=4444`
-- **Bridge Startup:** `src/modules/BridgeModule.h:8–11` – TCP server setup and forwarding logic
+- **Main Loop:** `src/3ds/main.cpp:53–125` – Input → poll network → print cycle
+- **Protocol Definition:** `src/3ds/network_client.h:18–21` – JSON message format
+- **Bridge Endpoint Config:** `src/3ds/Makefile` – `BRIDGE_IP`/`BRIDGE_PORT` variables (consumed in `src/3ds/network_client.h:11–16`)
+- **Bridge Startup:** `src/modules/BridgeModule.h` – TCP server setup, forwarding logic, and firmware integration notes
 
 ## UI Enhancement Guidelines (Phase 5)
 

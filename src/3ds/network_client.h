@@ -3,7 +3,17 @@
 
 #include <string>
 #include <cstdint>
-#include <vector>   // Fix #7: header was missing this include
+#include <vector>
+
+// Bridge endpoint. Defaults target the Heltec bridge AP (real hardware).
+// Override at build time for emulator testing against the mock bridge:
+//   make BRIDGE_IP=127.0.0.1
+#ifndef BRIDGE_IP
+#define BRIDGE_IP "192.168.4.1"
+#endif
+#ifndef BRIDGE_PORT
+#define BRIDGE_PORT 4444
+#endif
 
 /**
  * Protocol: JSON lines ending with '\n'.
@@ -11,6 +21,9 @@
  */
 class NetworkClient {
 public:
+    static constexpr const char* TARGET_IP = BRIDGE_IP;
+    static constexpr uint16_t TARGET_PORT = BRIDGE_PORT;
+
     NetworkClient();
     ~NetworkClient();
 
@@ -28,8 +41,8 @@ private:
     bool m_connected;
     std::vector<char> m_read_buffer;
 
-    static constexpr const char* TARGET_IP = "127.0.0.1";  // Emulator: 127.0.0.1, Hardware: 192.168.4.1
-    static constexpr uint16_t TARGET_PORT = 4444;
+    static constexpr int CONNECT_TIMEOUT_MS = 5000;
+    static constexpr int SEND_TIMEOUT_MS = 3000;
 };
 
 #endif // NETWORK_CLIENT_H
