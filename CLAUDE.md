@@ -63,23 +63,31 @@ The 3DS client and Bridge Module communicate via **JSON lines over TCP**:
 **3DS Client Components:**
 - `main.cpp` – Hardware initialization (`gfxInitDefault`/`consoleInit` + `socInit` for sockets), console UI, main loop (input → poll network → print)
 - `network_client.{h,cpp}` – TCP socket client; handles `SendText()` and `PollMessage()` for JSON communication
-- `ui_handler.{h,cpp}` – Stubs; the current build is console-only (the terminal-style UI below is the Phase 5 target)
+- `ui_handler.{h,cpp}` – Phase 5 Citro2D graphical UI (fully implemented)
 
-### UI Design (Minimal, Terminal-like)
+### UI Design (Cyberpunk / Pip-Boy / Matrix)
 
-**Color Scheme:**
-- **Background:** Black (`0x00, 0x00, 0x00, 0xFF`)
-- **Main Text:** Green (`0x00, 0xFF, 0x00, 0xFF`)
-- **Accents (status, warnings, titles):** Yellow (`0xFF, 0xFF, 0x00, 0xFF`), Orange (`0xFF, 0xA5, 0x00, 0xFF`), White (`0xFF, 0xFF, 0xFF, 0xFF`)
+**Color Scheme (`COL_*` macros in `ui_handler.h`):**
+- **Background:** Black — `C2D_Color32(0x00, 0x00, 0x00, 0xFF)`
+- **Message text (received):** Matrix green — `C2D_Color32(0x00, 0xFF, 0x00, 0xFF)`
+- **Message text (self):** Bright green — `C2D_Color32(0x66, 0xFF, 0x66, 0xFF)`
+- **Chrome (borders, header, status, key hints):** Green — `C2D_Color32(0x00, 0xCC, 0x00, 0xFF)`
+- **Warnings:** Orange — `C2D_Color32(0xFF, 0x80, 0x00, 0xFF)`
+- **Errors:** White — `C2D_Color32(0xFF, 0xFF, 0xFF, 0xFF)`
+- **Scanlines:** Semi-transparent black — `C2D_Color32(0x00, 0x00, 0x00, 0x60)`
 
 **Layout (Top Screen, 400×240):**
-1. Title bar: "--- Mesh Chat ---" (Yellow)
-2. Message log: 15 lines, each message in Green (received) or with "Me: " prefix (sent)
-3. Status line: Connection status, warnings if any (Yellow for warnings, Orange for errors)
-4. Input preview: "Input: [current text]_" (Green with cursor)
-5. Help text: "A: Keyboard | X: Send | B: Backspace" (Yellow/Orange for key hints)
+1. Header bar: `.:eLoRa.:.3Ds:.` left + `[MESH CHAT]` right (black text on green fill)
+2. Message log: up to 12 lines — green (received), bright green (self), orange (warnings), white (errors)
+3. Status bar: `[CONNECTED :: ip:port]` / `[DISCONNECTED]` etc. in green
+4. CRT scanline overlay: semi-transparent strips every 4px across both screens
 
-**Minimal Philosophy:** No background images, no gradients, no animations. ASCII terminal-like aesthetic. Use color strategically for information hierarchy only.
+**Bottom Screen (320×240):**
+1. `INPUT:` label in green
+2. `> text_` input preview with blinking cursor in green
+3. Key hints: `[A]Type [X]Send [B]Del [Y]Reconn]` in green
+
+**Philosophy:** Full-green matrix terminal aesthetic. Black background only. CRT scanlines for depth. Color hierarchy: bright green (self) > matrix green (received) > dim green (chrome) > orange (warn) > white (error).
 
 **Bridge Module:**
 - `BridgeModule.{h,cpp}` – Extends `ProtobufModule` (Meshtastic standard)

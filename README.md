@@ -131,14 +131,14 @@ docs/
 
 The system is fully functional and hardware-verified:
 
-- 3DS app: built, emulator-tested (Azahar), and validated over the real TCP protocol
+- 3DS app: Citro2D graphical UI complete — matrix-green cyberpunk aesthetic, CRT scanlines, `.:eLoRa.:.3Ds:.` branding
 - ESP32 firmware: compiled, flashed to Heltec V1, AP confirmed up, LoRa TX confirmed (`txGood=1`)
 - End-to-end PC simulation (standing in for the 3DS) verified message transmission over LoRa
 
-**Pending (Phase 5):**
-- Graphical UI with message log, scroll, timestamps
+**Pending:**
 - Message persistence to SD card
-- Wi-Fi reconnection with countdown feedback
+- Message scroll (view beyond 12 messages), timestamps, sender info
+- Wi-Fi reconnection countdown feedback
 
 ## License
 

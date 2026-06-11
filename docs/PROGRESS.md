@@ -1,5 +1,16 @@
 # Project Progress – Nintendo 3DS Meshtastic Messenger
 
+## ✅ Completed steps (updated 2026-06-11)
+
+- **Phase 5: Citro2D graphical UI — COMPLETE (2026-06-11)** — Replaced console-only `printf()` rendering with a full GPU-accelerated cyberpunk/matrix UI using Citro2D:
+  - `ui_handler.{h,cpp}` fully implemented; `main.cpp` refactored to use `UIHandler`
+  - Full-green matrix aesthetic: black background, `#00FF00` message text, `#00CC00` chrome (borders, header, status bar), CRT scanline overlay every 4px
+  - Top screen: amber→green header bar with `.:eLoRa.:.3Ds:.` branding + `[MESH CHAT]`, 12-line scrolling message log, connection status bar
+  - Bottom screen: `INPUT:` label, blinking `> _` cursor, key hint bar
+  - Color-coded messages: bright green (self), matrix green (received), orange (warnings), white (errors)
+  - Citro2D linked via `portlibs/3ds` — VFP ABI compatible; build: zero warnings, zero errors
+  - Verified live in Azahar emulator; screenshot saved
+
 ## ✅ Completed steps (updated 2026-06-10)
 - **Repository scaffolding** – `README.md`, `.gitignore` created.
 - **Heltec bridge module** – `src/modules/BridgeModule.{h,cpp}` added and registered in `src/mesh/Modules.cpp`.
