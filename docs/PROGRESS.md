@@ -2,6 +2,13 @@
 
 ## ✅ Completed steps (updated 2026-06-11)
 
+- **FULL SYSTEM VALIDATED ON REAL 3DS HARDWARE (2026-06-11)** — End-to-end test with the actual Nintendo 3DS for the first time:
+  - Netloaded the Phase 5 `.3dsx` to the 3DS over Wi-Fi via `3dslink` (PC `wlan0` joined the `meshtastic-bridge` AP at `192.168.4.4`; 3DS at `192.168.4.6`). 221 KB transferred, app launched.
+  - Green cyberpunk UI confirmed rendering correctly on real hardware (header `.:eLoRa.:.3Ds:.`, message log, status bar, scanlines).
+  - Sent the message "kk" from the 3DS; captured the complete forwarding chain on the Heltec serial console: `[BridgeModule] decoded message (... Portnum=1 ...)` → `forwarded to mesh: kk` → `[RadioIf] Started Tx (encrypted len=24)` → `Packet TX: 1975ms` → `Completed sending`. **Message genuinely transmitted over LoRa.**
+  - Note: attaching to the Heltec serial (`/dev/ttyUSB0`) triggers the CP2102 auto-reset, rebooting the board (~50 s back to AP-ready); the 3DS must press **Y** to reconnect afterward. Serial monitoring used a no-DTR/RTS pyserial script (`/tmp/watch_serial.py`) but the open-time reset is unavoidable on this board.
+  - **Result: the entire pipeline — 3DS app → Wi-Fi/TCP bridge → LoRa mesh — is proven working on real hardware.**
+
 - **Phase 5: Citro2D graphical UI — COMPLETE (2026-06-11)** — Replaced console-only `printf()` rendering with a full GPU-accelerated cyberpunk/matrix UI using Citro2D:
   - `ui_handler.{h,cpp}` fully implemented; `main.cpp` refactored to use `UIHandler`
   - Full-green matrix aesthetic: black background, `#00FF00` message text, `#00CC00` chrome (borders, header, status bar), CRT scanline overlay every 4px
